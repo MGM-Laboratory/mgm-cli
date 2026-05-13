@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mgm/mgm-cli/internal/config"
-	"github.com/mgm/mgm-cli/internal/infisical"
-	"github.com/mgm/mgm-cli/internal/ui"
-	"github.com/mgm/mgm-cli/internal/version"
+	"github.com/MGM-Laboratory/mgm-cli/internal/config"
+	"github.com/MGM-Laboratory/mgm-cli/internal/infisical"
+	"github.com/MGM-Laboratory/mgm-cli/internal/ui"
+	"github.com/MGM-Laboratory/mgm-cli/internal/version"
 )
 
 func newConfigureCommand() *cobra.Command {

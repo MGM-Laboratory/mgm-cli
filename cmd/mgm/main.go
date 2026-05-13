@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mgm/mgm-cli/internal/cli"
+	"github.com/MGM-Laboratory/mgm-cli/internal/cli"
 )
 
 func main() {

@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/mgm/mgm-cli/internal/infisical"
-	"github.com/mgm/mgm-cli/internal/ui"
+	"github.com/MGM-Laboratory/mgm-cli/internal/infisical"
+	"github.com/MGM-Laboratory/mgm-cli/internal/ui"
 )
 
 // selectionFlags holds the fast-path overrides every env command accepts.

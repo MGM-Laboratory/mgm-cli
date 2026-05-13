@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mgm/mgm-cli/internal/ui"
+	"github.com/MGM-Laboratory/mgm-cli/internal/ui"
 )
 
 // `mgm env projects` — list all accessible projects.

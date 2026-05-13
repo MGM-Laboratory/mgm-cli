@@ -1,4 +1,4 @@
-module github.com/mgm/mgm-cli
+module github.com/MGM-Laboratory/mgm-cli
 
 go 1.22
 

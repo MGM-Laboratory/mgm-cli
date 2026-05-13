@@ -16,9 +16,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/mgm/mgm-cli/internal/version.Version={{.Version}}
-      - -X github.com/mgm/mgm-cli/internal/version.Commit={{.Commit}}
-      - -X github.com/mgm/mgm-cli/internal/version.Date={{.Date}}
+      - -X github.com/MGM-Laboratory/mgm-cli/internal/version.Version={{.Version}}
+      - -X github.com/MGM-Laboratory/mgm-cli/internal/version.Commit={{.Commit}}
+      - -X github.com/MGM-Laboratory/mgm-cli/internal/version.Date={{.Date}}
     goos:
       - linux
       - darwin
@@ -65,7 +65,7 @@ nfpms:
   - id: linux-packages
     package_name: mgm
     vendor: MGM
-    homepage: https://github.com/mgm/mgm-cli
+    homepage: https://github.com/MGM-Laboratory/mgm-cli
     maintainer: MGM <devops@mgm.local>
     description: |
       MGM internal CLI — manage Infisical secrets and environments.

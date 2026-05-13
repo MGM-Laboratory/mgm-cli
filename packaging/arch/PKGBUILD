@@ -4,12 +4,12 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="MGM internal CLI - manage Infisical secrets and environments"
 arch=('x86_64' 'aarch64')
-url="https://github.com/mgm/mgm-cli"
+url="https://github.com/MGM-Laboratory/mgm-cli"
 license=('MIT')
 makedepends=('go>=1.22')
 provides=('mgm')
 conflicts=('mgm')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/mgm/mgm-cli/archive/refs/tags/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/MGM-Laboratory/mgm-cli/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
@@ -17,9 +17,9 @@ build() {
   export CGO_ENABLED=0
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
   export LDFLAGS="-s -w \
-    -X github.com/mgm/mgm-cli/internal/version.Version=$pkgver \
-    -X github.com/mgm/mgm-cli/internal/version.Commit=arch \
-    -X github.com/mgm/mgm-cli/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    -X github.com/MGM-Laboratory/mgm-cli/internal/version.Version=$pkgver \
+    -X github.com/MGM-Laboratory/mgm-cli/internal/version.Commit=arch \
+    -X github.com/MGM-Laboratory/mgm-cli/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   go build -ldflags "$LDFLAGS" -o mgm ./cmd/mgm
 }
 

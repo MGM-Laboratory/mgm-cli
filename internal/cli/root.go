@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/mgm/mgm-cli/internal/version"
+	"github.com/MGM-Laboratory/mgm-cli/internal/version"
 )
 
 var globalProfile string

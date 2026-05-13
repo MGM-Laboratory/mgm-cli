@@ -22,21 +22,47 @@ mgm env status | whoami
 
 ## Install
 
-### macOS / Linux (binary)
+One command. Pick the line for your OS — that's it.
+
+### Linux / macOS / WSL / Git Bash
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/mgm/mgm-cli/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | bash
 ```
 
-Pin a version:
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+```
+
+That installs the latest release into `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\mgm` (Windows), updates your `PATH` if needed, and shows you the version. Re-run the same command to upgrade.
+
+#### Pin a version
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/mgm/mgm-cli/main/install.sh | MGM_VERSION=v0.1.0 sh
+# Linux/macOS
+curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | MGM_VERSION=v0.1.0 bash
+```
+
+```powershell
+# Windows
+$env:MGM_VERSION='v0.1.0'; irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+```
+
+#### Custom install location (no sudo)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | MGM_INSTALL_DIR=$HOME/.local/bin bash
+```
+
+```powershell
+$env:MGM_INSTALL_DIR="$HOME\bin"; irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
 ```
 
 ### Manual download
 
-Grab the archive for your platform from the [releases page](https://github.com/mgm/mgm-cli/releases):
+Grab the archive for your platform from the [releases page](https://github.com/MGM-Laboratory/mgm-cli/releases):
 
 | OS      | Arch  | Asset                          |
 | ------- | ----- | ------------------------------ |
@@ -48,7 +74,7 @@ Grab the archive for your platform from the [releases page](https://github.com/m
 
 Extract `mgm` (or `mgm.exe`) onto your `PATH`.
 
-### Arch Linux
+### Arch Linux (AUR)
 
 ```sh
 cd packaging/arch
@@ -60,7 +86,7 @@ A `.deb`, `.rpm`, `.apk`, and Arch package are also produced by `goreleaser` for
 ### From source
 
 ```sh
-git clone https://github.com/mgm/mgm-cli
+git clone https://github.com/MGM-Laboratory/mgm-cli
 cd mgm-cli
 make build               # ./bin/mgm
 sudo make install        # /usr/local/bin/mgm

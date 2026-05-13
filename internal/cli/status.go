@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mgm/mgm-cli/internal/config"
-	"github.com/mgm/mgm-cli/internal/projectfile"
-	"github.com/mgm/mgm-cli/internal/ui"
+	"github.com/MGM-Laboratory/mgm-cli/internal/config"
+	"github.com/MGM-Laboratory/mgm-cli/internal/projectfile"
+	"github.com/MGM-Laboratory/mgm-cli/internal/ui"
 )
 
 func newStatusCommand() *cobra.Command {

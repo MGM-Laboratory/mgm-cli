@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mgm/mgm-cli/internal/config"
-	"github.com/mgm/mgm-cli/internal/infisical"
-	"github.com/mgm/mgm-cli/internal/projectfile"
-	"github.com/mgm/mgm-cli/internal/ui"
-	"github.com/mgm/mgm-cli/internal/version"
+	"github.com/MGM-Laboratory/mgm-cli/internal/config"
+	"github.com/MGM-Laboratory/mgm-cli/internal/infisical"
+	"github.com/MGM-Laboratory/mgm-cli/internal/projectfile"
+	"github.com/MGM-Laboratory/mgm-cli/internal/ui"
+	"github.com/MGM-Laboratory/mgm-cli/internal/version"
 )
 
 // runtimeCtx is everything an env subcommand needs: live config, an
