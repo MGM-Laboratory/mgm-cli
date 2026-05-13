@@ -70,6 +70,41 @@ try {
     Write-Info "Downloading $url"
 
     $zipPath = Join-Path $tmp.FullName $asset
+
+    # Pre-flight: HEAD the URL so we can tell the user clearly when there is
+    # no release yet, instead of a generic 404 from the actual download.
+    $statusCode = 0
+    try {
+        $head = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
+        $statusCode = [int]$head.StatusCode
+    } catch [System.Net.WebException] {
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+        } else {
+            Write-Err "could not reach github.com - check your network/proxy"
+            throw
+        }
+    } catch {
+        Write-Err "preflight failed: $($_.Exception.Message)"
+        throw
+    }
+
+    if ($statusCode -eq 404) {
+        if ($Version -eq 'latest') {
+            Write-Err "no release published yet for $Repo."
+            Write-Host "    Visit https://github.com/$Repo/releases - once a release exists, re-run this command."
+            Write-Host "    To install a specific version: `$env:MGM_VERSION='v0.1.0'; irm .../install.ps1 | iex"
+            throw "no release available"
+        } else {
+            Write-Err "release $Version not found for $Repo."
+            Write-Host "    See https://github.com/$Repo/releases for available versions."
+            throw "release not found"
+        }
+    } elseif ($statusCode -ne 200 -and $statusCode -ne 0) {
+        Write-Err "unexpected HTTP $statusCode from $url"
+        throw "unexpected status"
+    }
+
     try {
         Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing
     } catch {

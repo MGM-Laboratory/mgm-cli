@@ -34,8 +34,15 @@ need tar
 need mkdir
 if command -v curl >/dev/null 2>&1; then
   fetch() { curl -fsSL "$1" -o "$2"; }
+  # head_status echoes the HTTP status of a HEAD against $1, following redirects.
+  head_status() { curl -fsSLI -o /dev/null -w "%{http_code}" "$1" 2>/dev/null || echo "000"; }
 elif command -v wget >/dev/null 2>&1; then
   fetch() { wget -qO "$2" "$1"; }
+  head_status() {
+    code=$(wget -S --spider "$1" 2>&1 | awk '/HTTP\// {code=$2} END {print code+0}')
+    [ -n "$code" ] && [ "$code" != "0" ] || code="000"
+    echo "$code"
+  }
 else
   die "need either curl or wget"
 fi
@@ -90,6 +97,30 @@ trap 'rm -rf "$tmp"' EXIT INT HUP TERM
 
 say "Detected ${C_BOLD}${os}/${arch}${C_RESET}"
 say "Downloading ${C_DIM}${url}${C_RESET}"
+
+# Pre-flight: tell the user clearly when there's no release yet, instead of a
+# generic 404 from the actual download.
+status=$(head_status "$url")
+case "$status" in
+  200|302|301) ;;
+  404)
+    if [ "$VERSION" = "latest" ]; then
+      die "no release published yet for ${REPO}.
+       Visit https://github.com/${REPO}/releases — once a release exists, re-run this command.
+       To install a specific version: MGM_VERSION=v0.1.0 $(basename "$0")"
+    else
+      die "release ${VERSION} not found for ${REPO}.
+       See https://github.com/${REPO}/releases for available versions."
+    fi
+    ;;
+  000)
+    die "could not reach github.com — check your network/proxy"
+    ;;
+  *)
+    die "unexpected HTTP ${status} from ${url}"
+    ;;
+esac
+
 fetch "$url" "$tmp/$asset" || die "download failed: $url"
 
 # ---------- extract ----------
