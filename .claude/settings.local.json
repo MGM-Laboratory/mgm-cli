@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go version *)",
+      "Bash(go mod *)",
+      "Bash(go build *)",
+      "Bash(go vet *)",
+      "Bash(./bin/mgm.exe --help)",
+      "Bash(./bin/mgm.exe env *)",
+      "Bash(./bin/mgm.exe version *)",
+      "Bash(MGM_CONFIG=\"$\\(pwd\\)/.tmp_config\" MGM_NO_TUI=1 ./bin/mgm.exe env status)",
+      "Bash(MGM_CONFIG=\"$\\(pwd\\)/.tmp_config\" MGM_NO_TUI=1 ./bin/mgm.exe env list)",
+      "Bash(rm -f .tmp_config)"
+    ]
+  }
+}

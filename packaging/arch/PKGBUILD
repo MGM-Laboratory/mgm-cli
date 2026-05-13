@@ -1,0 +1,35 @@
+# Maintainer: MGM DevOps <devops@mgm.local>
+pkgname=mgm-cli
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="MGM internal CLI - manage Infisical secrets and environments"
+arch=('x86_64' 'aarch64')
+url="https://github.com/mgm/mgm-cli"
+license=('MIT')
+makedepends=('go>=1.22')
+provides=('mgm')
+conflicts=('mgm')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/mgm/mgm-cli/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "mgm-cli-$pkgver"
+  export CGO_ENABLED=0
+  export GOFLAGS="-trimpath -mod=readonly -modcacherw"
+  export LDFLAGS="-s -w \
+    -X github.com/mgm/mgm-cli/internal/version.Version=$pkgver \
+    -X github.com/mgm/mgm-cli/internal/version.Commit=arch \
+    -X github.com/mgm/mgm-cli/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  go build -ldflags "$LDFLAGS" -o mgm ./cmd/mgm
+}
+
+package() {
+  cd "mgm-cli-$pkgver"
+  install -Dm755 mgm "$pkgdir/usr/bin/mgm"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+
+  ./mgm completion bash    | install -Dm644 /dev/stdin "$pkgdir/usr/share/bash-completion/completions/mgm"
+  ./mgm completion zsh     | install -Dm644 /dev/stdin "$pkgdir/usr/share/zsh/site-functions/_mgm"
+  ./mgm completion fish    | install -Dm644 /dev/stdin "$pkgdir/usr/share/fish/vendor_completions.d/mgm.fish"
+}

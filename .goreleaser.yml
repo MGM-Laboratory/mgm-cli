@@ -1,0 +1,81 @@
+version: 2
+
+project_name: mgm
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: mgm
+    main: ./cmd/mgm
+    binary: mgm
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/mgm/mgm-cli/internal/version.Version={{.Version}}
+      - -X github.com/mgm/mgm-cli/internal/version.Commit={{.Commit}}
+      - -X github.com/mgm/mgm-cli/internal/version.Date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: default
+    builds: [mgm]
+    name_template: >-
+      mgm-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: false
+  prerelease: auto
+
+nfpms:
+  - id: linux-packages
+    package_name: mgm
+    vendor: MGM
+    homepage: https://github.com/mgm/mgm-cli
+    maintainer: MGM <devops@mgm.local>
+    description: |
+      MGM internal CLI — manage Infisical secrets and environments.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+      - archlinux
+    bindir: /usr/bin
+
+# Native macOS / Linux build via local "make release" still works without
+# goreleaser; CI publishes archives to GitHub Releases.
