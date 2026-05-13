@@ -24,23 +24,35 @@ import (
 )
 
 const (
-	DefaultHostURL = "https://secrets.labmgm.org"
-	DefaultProfile = "default"
+	DefaultHostURL  = "https://secrets.labmgm.org"
+	DefaultGatusURL = "https://status.labmgm.org"
+	DefaultProfile  = "default"
 )
 
 // Profile is the persisted credentials/defaults for one named profile.
+// Fields are grouped by namespace: env (Infisical) and status (Gatus).
 type Profile struct {
+	// env / Infisical
 	HostURL            string `mapstructure:"host_url"`
 	ClientID           string `mapstructure:"client_id"`
 	ClientSecret       string `mapstructure:"client_secret"`
 	DefaultProjectID   string `mapstructure:"default_project_id"`
 	DefaultEnvironment string `mapstructure:"default_environment"`
 	DefaultFolder      string `mapstructure:"default_folder"`
+
+	// status / Gatus
+	GatusURL   string `mapstructure:"gatus_url"`
+	GatusToken string `mapstructure:"gatus_token"`
 }
 
-// IsConfigured returns true when there's enough to authenticate.
+// IsConfigured returns true when there's enough to authenticate to Infisical.
 func (p Profile) IsConfigured() bool {
 	return p.ClientID != "" && p.ClientSecret != "" && p.HostURL != ""
+}
+
+// HasGatus returns true when a Gatus URL is set (token is optional).
+func (p Profile) HasGatus() bool {
+	return p.GatusURL != ""
 }
 
 // Manager loads and saves the on-disk config file.
@@ -115,9 +127,18 @@ func (m *Manager) Load() Profile {
 	if v := os.Getenv("MGM_FOLDER"); v != "" {
 		p.DefaultFolder = v
 	}
+	if v := os.Getenv("MGM_GATUS_URL"); v != "" {
+		p.GatusURL = v
+	}
+	if v := os.Getenv("MGM_GATUS_TOKEN"); v != "" {
+		p.GatusToken = v
+	}
 
 	if p.HostURL == "" {
 		p.HostURL = DefaultHostURL
+	}
+	if p.GatusURL == "" {
+		p.GatusURL = DefaultGatusURL
 	}
 	if p.DefaultFolder == "" {
 		p.DefaultFolder = "/"
@@ -138,6 +159,8 @@ func (m *Manager) Save(p Profile) error {
 	m.v.Set(m.profile+".default_project_id", p.DefaultProjectID)
 	m.v.Set(m.profile+".default_environment", p.DefaultEnvironment)
 	m.v.Set(m.profile+".default_folder", p.DefaultFolder)
+	m.v.Set(m.profile+".gatus_url", p.GatusURL)
+	m.v.Set(m.profile+".gatus_token", p.GatusToken)
 
 	if err := m.v.WriteConfigAs(m.path); err != nil {
 		return fmt.Errorf("write config %s: %w", m.path, err)

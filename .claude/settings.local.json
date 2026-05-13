@@ -13,7 +13,10 @@
       "Bash(rm -f .tmp_config)",
       "PowerShell(Test-Path *)",
       "Bash(bash -n install.sh)",
-      "PowerShell(Out-Null *)"
+      "PowerShell(Out-Null *)",
+      "Bash(./bin/mgm.exe status *)",
+      "Bash(go run *)",
+      "PowerShell($archRaw = $env:PROCESSOR_ARCHITEW6432; if \\(-not $archRaw\\) { $archRaw = $env:PROCESSOR_ARCHITECTURE }; $arch = switch -Regex \\($archRaw\\) { '^\\(AMD64|X64\\)$' { 'amd64'; break } '^ARM64$' { 'arm64'; break } default { 'UNKNOWN' } }; Write-Host \"raw=$archRaw arch=$arch\")"
     ]
   }
 }

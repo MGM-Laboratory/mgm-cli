@@ -25,10 +25,24 @@ function Write-Err($msg)  { Write-Host "ERR $msg" -ForegroundColor Red }
 if (-not $Version) { $Version = 'latest' }
 
 # --- arch detect ---
-$arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
-    'X64'   { 'amd64' }
-    'Arm64' { 'arm64' }
-    default { throw "unsupported architecture: $_" }
+# Use PROCESSOR_ARCHITEW6432 first (set when a 32-bit process runs on a 64-bit OS),
+# then PROCESSOR_ARCHITECTURE, then fall back to RuntimeInformation. We avoid
+# switching directly on RuntimeInformation.OSArchitecture: in PowerShell 5.1 it
+# returns an enum value that does not compare equal to the case-string literals,
+# so every case misses and `default` fires with an empty `$_`.
+$archRaw = $env:PROCESSOR_ARCHITEW6432
+if (-not $archRaw) { $archRaw = $env:PROCESSOR_ARCHITECTURE }
+if (-not $archRaw) {
+    try {
+        $archRaw = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    } catch {
+        $archRaw = ''
+    }
+}
+$arch = switch -Regex ($archRaw) {
+    '^(AMD64|X64)$' { 'amd64'; break }
+    '^ARM64$'       { 'arm64'; break }
+    default         { throw "unsupported architecture: '$archRaw' (expected AMD64 / X64 / ARM64)" }
 }
 if ($arch -eq 'arm64') {
     throw "windows/arm64 builds aren't published yet -- use the amd64 build under emulation"

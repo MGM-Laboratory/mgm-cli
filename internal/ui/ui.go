@@ -38,6 +38,9 @@ func Errorf(format string, a ...any)   { fmt.Fprintln(Err, errStyle.Render(fmt.S
 func Infof(format string, a ...any)    { fmt.Fprintln(Out, fmt.Sprintf(format, a...)) }
 func Dim(s string) string              { return dimStyle.Render(s) }
 func Key(s string) string              { return keyStyle.Render(s) }
+func SuccessText(s string) string      { return successStyle.Render(s) }
+func WarnText(s string) string         { return warnStyle.Render(s) }
+func ErrorText(s string) string        { return errStyle.Render(s) }
 
 // KV prints a key:value line with the key in colour.
 func KV(k, v string) {

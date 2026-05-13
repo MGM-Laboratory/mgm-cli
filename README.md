@@ -1,22 +1,13 @@
 # mgm
 
-MGM internal CLI. Today it manages secrets and environments stored in our self-hosted Infisical at https://secrets.labmgm.org. The `env` namespace is the first feature; future areas (`mgm db`, `mgm deploy`, `mgm cluster`, ...) live alongside it.
+`mgm` is the MGM internal CLI — a single command for everyday MGM ops. It started with secrets and service health and grows from there.
 
 ```
-mgm env configure          # one-time credential setup
-mgm env init               # pin this directory to a project/env/folder
-mgm env list               # browse projects → folders → secrets
-mgm env pull               # write secrets to .env
-mgm env push               # push .env to Infisical
-mgm env diff               # compare .env vs Infisical
-mgm env get FOO            # one secret
-mgm env set FOO=bar BAZ=qux
-mgm env delete FOO
-mgm env run -- ./app       # exec with secrets injected
-mgm env export --format json
-mgm env projects | environments | folders
-mgm env status | whoami
+mgm env       Pull/push secrets from self-hosted Infisical
+mgm status    Check the health of MGM services (Gatus)
 ```
+
+More namespaces (`mgm db`, `mgm deploy`, `mgm cluster`, ...) are planned. Each one is its own subcommand tree, configured per-profile in `~/.mgm/config`.
 
 ---
 
@@ -36,7 +27,10 @@ curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install
 irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
 ```
 
-That installs the latest release into `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\mgm` (Windows), updates your `PATH` if needed, and shows you the version. Re-run the same command to upgrade.
+That installs the latest release into `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\mgm` (Windows), updates your `PATH` if needed, and prints the version. Re-run the same command to upgrade.
+
+<details>
+<summary>Pin a version, custom install dir, manual download, source build</summary>
 
 #### Pin a version
 
@@ -60,7 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install
 $env:MGM_INSTALL_DIR="$HOME\bin"; irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
 ```
 
-### Manual download
+#### Manual download
 
 Grab the archive for your platform from the [releases page](https://github.com/MGM-Laboratory/mgm-cli/releases):
 
@@ -74,7 +68,7 @@ Grab the archive for your platform from the [releases page](https://github.com/M
 
 Extract `mgm` (or `mgm.exe`) onto your `PATH`.
 
-### Arch Linux (AUR)
+#### Arch Linux (AUR)
 
 ```sh
 cd packaging/arch
@@ -83,7 +77,7 @@ makepkg -si
 
 A `.deb`, `.rpm`, `.apk`, and Arch package are also produced by `goreleaser` for each release.
 
-### From source
+#### From source
 
 ```sh
 git clone https://github.com/MGM-Laboratory/mgm-cli
@@ -98,9 +92,82 @@ Cross-build everything locally:
 make dist                # ./dist/mgm-{os}-{arch}
 ```
 
+</details>
+
 ---
 
-## First-time setup
+## Configuration
+
+Settings live in `~/.mgm/config` (TOML), with one section per profile. The first time a command needs something it isn't configured for, it'll prompt you and save the answer.
+
+```toml
+[default]
+# env / Infisical
+host_url      = "https://secrets.labmgm.org"
+client_id     = "..."
+client_secret = "..."
+
+# status / Gatus
+gatus_url     = "https://status.labmgm.org"
+gatus_token   = ""
+
+[ops]
+host_url      = "https://secrets.labmgm.org"
+client_id     = "..."
+client_secret = "..."
+```
+
+Switch profiles with `--profile ops` (or `MGM_PROFILE=ops`).
+
+<details>
+<summary>All environment variables and overrides</summary>
+
+| Place                    | Purpose                                       |
+| ------------------------ | --------------------------------------------- |
+| `~/.mgm/config`          | Credentials and per-profile defaults (TOML)   |
+| `./.mgm.yaml`            | Project pin (project_id, environment, folder) |
+| `MGM_PROFILE`            | Active profile name                           |
+| `MGM_CONFIG`             | Override config file path                     |
+| `MGM_HOST_URL`           | Infisical host URL                            |
+| `MGM_CLIENT_ID`          | Infisical client ID                           |
+| `MGM_CLIENT_SECRET`      | Infisical client secret                       |
+| `MGM_PROJECT_ID`         | Default Infisical project ID                  |
+| `MGM_ENVIRONMENT`        | Default Infisical environment slug            |
+| `MGM_FOLDER`             | Default Infisical secret folder               |
+| `MGM_GATUS_URL`          | Gatus base URL                                |
+| `MGM_GATUS_TOKEN`        | Gatus bearer token (optional)                 |
+| `MGM_NO_TUI=1`           | Disable interactive prompts (CI)              |
+
+Resolution order: CLI flags > `.mgm.yaml` > profile in config > env vars > built-in defaults.
+
+</details>
+
+---
+
+## Namespaces
+
+<details>
+<summary><b><code>mgm env</code></b> — Secrets & .env files via Infisical</summary>
+
+Pull, push, view, and edit secrets stored in self-hosted Infisical at `https://secrets.labmgm.org`.
+
+```sh
+mgm env configure          # one-time credential setup (prompts if you skip it)
+mgm env init               # pin this directory to a project/env/folder (writes .mgm.yaml)
+mgm env list               # browse projects → folders → secrets
+mgm env pull               # write secrets to .env
+mgm env push               # push .env to Infisical
+mgm env diff               # compare .env vs Infisical (CI-friendly: exits 1 on drift)
+mgm env get FOO            # one secret
+mgm env set FOO=bar BAZ=qux
+mgm env delete FOO
+mgm env run -- ./app       # exec a process with secrets injected
+mgm env export --format json
+mgm env projects | environments | folders
+mgm env status | whoami
+```
+
+#### First-time setup
 
 ```sh
 $ mgm env configure
@@ -111,38 +178,18 @@ Infisical Client ID [None]: ...
 Infisical Client Secret [None]: ...
 Infisical Host URL [https://secrets.labmgm.org]:
 
-✓ Saved /home/you/.mgm/config [default]
+Saved /home/you/.mgm/config [default]
 ```
 
-Any command that needs credentials will trigger this same prompt if you skip it.
+Any command that needs credentials will trigger this prompt if you skip it.
 
-### Profiles
-
-Switch between credential sets with `--profile` (or `MGM_PROFILE`). Each profile is a TOML section in `~/.mgm/config`:
-
-```toml
-[default]
-host_url      = "https://secrets.labmgm.org"
-client_id     = "..."
-client_secret = "..."
-
-[ops]
-host_url      = "https://secrets.labmgm.org"
-client_id     = "..."
-client_secret = "..."
-```
-
-```sh
-mgm --profile ops env list
-```
-
-### Pin a working directory
+#### Pin a working directory
 
 ```sh
 $ cd ~/code/my-service
 $ mgm env init
 … interactive picker for project / env / folder …
-✓ Wrote .mgm.yaml
+Wrote .mgm.yaml
 ```
 
 Commit `.mgm.yaml`. From then on `mgm env pull` etc. skip the picker.
@@ -154,9 +201,7 @@ environment: dev
 folder: /backend
 ```
 
----
-
-## Common workflows
+#### Common workflows
 
 ```sh
 # Pull dev secrets into .env
@@ -185,25 +230,55 @@ eval "$(mgm env export --env dev --format shell)"
 mgm env diff --env prod
 ```
 
----
+</details>
 
-## Configuration reference
+<details>
+<summary><b><code>mgm status</code></b> — MGM service health (Gatus)</summary>
 
-| Place                        | Purpose                                       |
-| ---------------------------- | --------------------------------------------- |
-| `~/.mgm/config`              | Credentials and per-profile defaults (TOML)   |
-| `./.mgm.yaml`                | Project pin (project_id, environment, folder) |
-| `MGM_PROFILE`                | Active profile name                           |
-| `MGM_CONFIG`                 | Override config file path                     |
-| `MGM_HOST_URL`               | Override host URL                             |
-| `MGM_CLIENT_ID`              | Override client ID                            |
-| `MGM_CLIENT_SECRET`          | Override client secret                        |
-| `MGM_PROJECT_ID`             | Default project ID                            |
-| `MGM_ENVIRONMENT`            | Default environment slug                      |
-| `MGM_FOLDER`                 | Default secret folder                         |
-| `MGM_NO_TUI=1`               | Disable interactive prompts (CI)              |
+Reads the MGM Gatus instance at `https://status.labmgm.org` and reports current health, recent checks, and uptime per service.
 
-CLI flags > project file > profile > env vars > built-in defaults.
+```sh
+mgm status                  # table of every service + current up/down
+mgm status SERVICE          # detail view: latest checks, conditions, uptime windows
+mgm status list             # every service Gatus knows about (key/name/group/host)
+mgm status configure        # set Gatus URL (and optional bearer token) for the profile
+mgm status incidents        # show services currently failing (exits 1 if any are down)
+mgm status uptime SERVICE   # uptime ratio over a window (--window 1h|24h|7d|30d)
+mgm status open [SERVICE]   # open the dashboard, or a specific service, in the browser
+mgm status --watch 10s      # repaint every 10 seconds
+```
+
+`SERVICE` matches against (in order): exact Gatus key, exact name, `group/name`, then a unique substring. If the match is ambiguous you'll get a picker.
+
+#### First-time setup
+
+The first command that needs Gatus will prompt for the URL (default `https://status.labmgm.org`) and an optional token, then save them under your active profile. To do it explicitly:
+
+```sh
+mgm status configure --url https://status.labmgm.org --test
+```
+
+#### Examples
+
+```sh
+# Quick glance — what's up right now?
+mgm status
+
+# Drill into one service
+mgm status api
+mgm status core/api --json | jq '.results[-1]'
+
+# Watch the dashboard from a terminal during an incident
+mgm status --watch 5s
+
+# CI gate that fails the build when production isn't healthy
+mgm status incidents
+
+# Daily uptime for a single service
+mgm status uptime database --window 24h
+```
+
+</details>
 
 ---
 
