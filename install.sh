@@ -1,14 +1,20 @@
 #!/usr/bin/env sh
-# mgm CLI installer — Linux, macOS, WSL, Git Bash, MSYS2, Cygwin.
+# Megumi Code / mgm CLI installer — Linux, macOS, WSL, Git Bash, MSYS2, Cygwin.
+#
+# Served from the marketing site (https://cli.labmgm.org); pulls the matching
+# binary from GitHub Releases.
 #
 # One-liner:
-#   curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | bash
+#   curl -fsSL https://cli.labmgm.org/install.sh | bash
 #
 # Pin a version:
-#   curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | MGM_VERSION=v0.1.0 bash
+#   curl -fsSL https://cli.labmgm.org/install.sh | MGM_VERSION=v0.1.0 bash
 #
 # Custom install dir (no sudo):
-#   curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | MGM_INSTALL_DIR=$HOME/.local/bin bash
+#   curl -fsSL https://cli.labmgm.org/install.sh | MGM_INSTALL_DIR=$HOME/.local/bin bash
+#
+# Knobs: MGM_REPO (default MGM-Laboratory/mgm-cli), MGM_VERSION (default latest),
+# MGM_INSTALL_DIR, NO_COLOR.
 set -eu
 
 REPO="${MGM_REPO:-MGM-Laboratory/mgm-cli}"
@@ -165,4 +171,6 @@ esac
 
 # ---------- post-install hint ----------
 "$target" version 2>/dev/null | head -n1 || true
-printf "\nNext: %smgm env configure%s to set Infisical credentials.\n" "$C_BOLD" "$C_RESET"
+printf "\nNext: %smgm auth%s to sign in, then %smgm megumi%s to start Megumi Code.\n" \
+  "$C_BOLD" "$C_RESET" "$C_BOLD" "$C_RESET"
+printf "Secrets/Infisical users: %smgm env configure%s.\n" "$C_BOLD" "$C_RESET"

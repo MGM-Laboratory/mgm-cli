@@ -413,7 +413,7 @@ func runWatch(interval time.Duration, run func() error) error {
 	defer ticker.Stop()
 	for {
 		fmt.Fprint(ui.Out, "\033[2J\033[H") // clear + home
-		ui.Infof(ui.Dim(fmt.Sprintf("watching every %s — Ctrl-C to stop — %s", interval, time.Now().Format(time.Kitchen))))
+		ui.Infof("%s", ui.Dim(fmt.Sprintf("watching every %s — Ctrl-C to stop — %s", interval, time.Now().Format(time.Kitchen))))
 		if err := run(); err != nil {
 			ui.Errorf("%v", err)
 		}
@@ -614,4 +614,3 @@ func openBrowser(target string) error {
 	}
 	return cmd.Start()
 }
-

@@ -13,9 +13,9 @@ import (
 
 func newRunCommand() *cobra.Command {
 	var (
-		sel        selectionFlags
-		passEnv    bool
-		shellExec  bool
+		sel       selectionFlags
+		passEnv   bool
+		shellExec bool
 	)
 	c := &cobra.Command{
 		Use:   "run -- <command> [args...]",

@@ -15,9 +15,9 @@ import (
 
 func newListCommand() *cobra.Command {
 	var (
-		sel       selectionFlags
-		jsonOut   bool
-		showVals  bool
+		sel      selectionFlags
+		jsonOut  bool
+		showVals bool
 	)
 	c := &cobra.Command{
 		Use:   "list",

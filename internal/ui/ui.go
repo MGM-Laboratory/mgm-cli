@@ -13,13 +13,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// MGM brand palette (DESIGN_SYSTEM.md): blue/yellow/red/green only — no purple,
+// teal, pink, or orange.
 var (
-	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981"))
-	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
-	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444"))
-	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	keyStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
+	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3a6dc5")) // brand blue
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#0f8657"))            // brand green
+	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#f7bf33"))            // brand yellow
+	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#f94141"))            // brand red
+	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))                // neutral grey
+	keyStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3a6dc5")) // brand blue
 )
 
 // Out and Err are split so callers can redirect.
@@ -32,15 +34,17 @@ var (
 func Title(s string) { fmt.Fprintln(Out, titleStyle.Render(s)) }
 
 // Successf, Warnf, Errorf, Infof are sprintf-style status lines.
-func Successf(format string, a ...any) { fmt.Fprintln(Out, successStyle.Render(fmt.Sprintf(format, a...))) }
-func Warnf(format string, a ...any)    { fmt.Fprintln(Err, warnStyle.Render(fmt.Sprintf(format, a...))) }
-func Errorf(format string, a ...any)   { fmt.Fprintln(Err, errStyle.Render(fmt.Sprintf(format, a...))) }
-func Infof(format string, a ...any)    { fmt.Fprintln(Out, fmt.Sprintf(format, a...)) }
-func Dim(s string) string              { return dimStyle.Render(s) }
-func Key(s string) string              { return keyStyle.Render(s) }
-func SuccessText(s string) string      { return successStyle.Render(s) }
-func WarnText(s string) string         { return warnStyle.Render(s) }
-func ErrorText(s string) string        { return errStyle.Render(s) }
+func Successf(format string, a ...any) {
+	fmt.Fprintln(Out, successStyle.Render(fmt.Sprintf(format, a...)))
+}
+func Warnf(format string, a ...any)  { fmt.Fprintln(Err, warnStyle.Render(fmt.Sprintf(format, a...))) }
+func Errorf(format string, a ...any) { fmt.Fprintln(Err, errStyle.Render(fmt.Sprintf(format, a...))) }
+func Infof(format string, a ...any)  { fmt.Fprintln(Out, fmt.Sprintf(format, a...)) }
+func Dim(s string) string            { return dimStyle.Render(s) }
+func Key(s string) string            { return keyStyle.Render(s) }
+func SuccessText(s string) string    { return successStyle.Render(s) }
+func WarnText(s string) string       { return warnStyle.Render(s) }
+func ErrorText(s string) string      { return errStyle.Render(s) }
 
 // KV prints a key:value line with the key in colour.
 func KV(k, v string) {

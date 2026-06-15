@@ -15,6 +15,9 @@ func NewRootCommand() *cobra.Command {
 		Short: "MGM internal CLI",
 		Long: "mgm is the MGM internal CLI — a single tool for everyday MGM ops.\n\n" +
 			"Namespaces:\n" +
+			"  mgm megumi   Start Megumi Code — the lab's AI coding agent\n" +
+			"  mgm auth     Sign in to your mgm account (Megumi Code)\n" +
+			"  mgm whoami   Show the active Megumi (mgm-account) identity\n" +
 			"  mgm env      Pull/push secrets to self-hosted Infisical\n" +
 			"  mgm status   Check MGM service health (Gatus)\n",
 		SilenceErrors: true,
@@ -24,6 +27,9 @@ func NewRootCommand() *cobra.Command {
 	root.SetVersionTemplate("mgm {{.Version}}\n")
 	root.PersistentFlags().StringVar(&globalProfile, "profile", "", "Config profile to use (default: $MGM_PROFILE or \"default\")")
 
+	root.AddCommand(newMegumiCommand())
+	root.AddCommand(newAuthCommand())
+	root.AddCommand(newAccountWhoamiCommand())
 	root.AddCommand(newEnvCommand())
 	root.AddCommand(newServiceStatusCommand())
 	root.AddCommand(newVersionCommand())

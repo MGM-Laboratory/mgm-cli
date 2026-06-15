@@ -1,0 +1,39 @@
+Megumi Code — vendored fork of Charm Crush
+===========================================
+
+This directory contains a vendored and modified copy ("fork") of Charm Crush,
+embedded into the mgm CLI so that `mgm megumi` runs as part of the single mgm
+binary. It is internal MGM Laboratory tooling.
+
+Upstream project : Charm Crush — https://github.com/charmbracelet/crush
+Upstream commit  : afea814e4b13359745b71c81aab2498c39a247f5
+License          : Functional Source License (FSL-1.1-MIT) — see LICENSE.md
+                   (preserved verbatim from upstream).
+
+Copyright
+---------
+  Copyright 2025-2026 Charmbracelet, Inc.
+  Copyright (c) 2025 Kujtim Hoxha
+  (See LICENSE.md for the full FSL-1.1-MIT text and the embedded MIT grant.)
+
+The upstream Contributor License Agreement is preserved as CLA.md for reference;
+it governs contributions to upstream Charm Crush, not this internal fork.
+
+Modifications made by MGM Laboratory
+------------------------------------
+The original source layout was preserved except that the upstream `internal/`
+path segment was flattened into this package
+(`github.com/MGM-Laboratory/mgm-cli/internal/megumi/crush/...`) and import paths
+were rewritten accordingly. Upstream tests, testdata, and the standalone
+`main.go` were omitted. Behavioural changes:
+
+  * Memory/context-file convention rebranded to MEGUMI.md (config defaults).
+  * Added cmd.Run(ctx, args) as an in-process launcher (no os.Exit).
+  * Added an optional in-process credential hook (agent.CredentialProvider) that
+    injects the live Megumi broker credential as the x-api-key header per
+    request; nil by default (upstream behaviour).
+  * Added a MEGUMI_LOCK provider lockdown that restricts the agent to the single
+    Megumi broker provider.
+
+Telemetry (PostHog) and provider auto-update are disabled at runtime by the
+embedding CLI via configuration/environment; no upstream endpoints are contacted.

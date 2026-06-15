@@ -47,7 +47,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -76,6 +76,87 @@ nfpms:
       - apk
       - archlinux
     bindir: /usr/bin
+
+# ── External-repo publishers ────────────────────────────────────────────────
+# Each of these pushes to its OWN repo (the sanctioned exception to "four repos",
+# prompt-0 §11). They are skip_upload: auto, so the CI snapshot/`--skip=publish`
+# never pushes; a real tagged release pushes only when the matching token/secret
+# is present (the release workflow computes `--skip` from available secrets).
+# Repo names live here in config; tokens/keys come from the environment.
+
+# Homebrew tap (Cask) → https://github.com/MGM-Laboratory/homebrew-mgm
+# Install: brew install --cask MGM-Laboratory/mgm/mgm
+# (GoReleaser 2.x ships binaries as Casks; the `brews` formula key is removed.)
+homebrew_casks:
+  - name: mgm
+    repository:
+      owner: MGM-Laboratory
+      name: homebrew-mgm
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    homepage: "https://github.com/MGM-Laboratory/mgm-cli"
+    description: "Megumi Code — the MGM Laboratory CLI (mgm)"
+    skip_upload: auto
+    binaries:
+      - mgm
+    # Remove the macOS quarantine xattr so the unsigned binary runs without a
+    # Gatekeeper prompt.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mgm"]
+          end
+
+# Scoop bucket → https://github.com/MGM-Laboratory/scoop-mgm
+# Install: scoop bucket add mgm https://github.com/MGM-Laboratory/scoop-mgm; scoop install mgm
+scoops:
+  - name: mgm
+    repository:
+      owner: MGM-Laboratory
+      name: scoop-mgm
+      branch: main
+      token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+    homepage: "https://github.com/MGM-Laboratory/mgm-cli"
+    description: "Megumi Code — the MGM Laboratory CLI (mgm)"
+    license: "MIT"
+    skip_upload: auto
+
+# Nix (NUR) → https://github.com/MGM-Laboratory/nur
+nix:
+  - name: mgm
+    repository:
+      owner: MGM-Laboratory
+      name: nur
+      branch: main
+      token: "{{ .Env.NUR_GITHUB_TOKEN }}"
+    homepage: "https://github.com/MGM-Laboratory/mgm-cli"
+    description: "Megumi Code — the MGM Laboratory CLI (mgm)"
+    license: "mit"
+    skip_upload: auto
+    install: |
+      mkdir -p $out/bin
+      cp -vr ./mgm $out/bin/mgm
+
+# Arch User Repository (binary package) → ssh://aur@aur.archlinux.org/mgm-bin.git
+aurs:
+  - name: mgm-bin
+    homepage: "https://github.com/MGM-Laboratory/mgm-cli"
+    description: "Megumi Code — the MGM Laboratory CLI (mgm)"
+    license: "MIT"
+    maintainers:
+      - "MGM DevOps <devops@mgm.local>"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/mgm-bin.git"
+    skip_upload: auto
+    provides:
+      - mgm
+    conflicts:
+      - mgm
+    package: |-
+      install -Dm755 "./mgm" "${pkgdir}/usr/bin/mgm"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/mgm-bin/LICENSE"
 
 # Native macOS / Linux build via local "make release" still works without
 # goreleaser; CI publishes archives to GitHub Releases.

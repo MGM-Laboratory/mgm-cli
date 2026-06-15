@@ -4,16 +4,380 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Never phone home from CI.
+  DO_NOT_TRACK: "1"
+  CRUSH_DISABLE_METRICS: "1"
 
 jobs:
-  test:
+  # ---------------------------------------------------------------------------
+  # 1. Static checks: formatting, vet, module hygiene.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: lint & format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
           cache: true
-      - run: go vet ./...
-      - run: go test ./...
-      - run: go build ./...
+
+      # Blocking gofmt gate on the code this project authors and keeps clean.
+      # The vendored upstream Crush fork under internal/megumi/crush/ tracks
+      # upstream's own formatting (import grouping differs after the charm.land
+      # module rename) and is intentionally excluded from the hard gate.
+      - name: gofmt (owned packages — blocking)
+        run: |
+          set -euo pipefail
+          owned="cmd internal/cli internal/version internal/ui internal/dotenv internal/gatus internal/config internal/infisical internal/projectfile test"
+          unformatted="$(gofmt -l $owned 2>/dev/null || true)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::These owned files are not gofmt-clean:"
+            echo "$unformatted"
+            gofmt -d $owned || true
+            exit 1
+          fi
+          echo "owned packages are gofmt-clean"
+
+      # Advisory: report drift across the whole tree (including the fork)
+      # without failing the build.
+      - name: gofmt (whole repo — advisory)
+        run: |
+          drift="$(gofmt -l . 2>/dev/null || true)"
+          if [ -n "$drift" ]; then
+            echo "::warning::gofmt drift (advisory, not blocking):"
+            echo "$drift"
+          else
+            echo "entire repo is gofmt-clean"
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go vet (e2e-tagged tests)
+        run: go vet -tags e2e ./test/e2e/...
+
+      - name: go mod tidy is clean
+        run: |
+          set -euo pipefail
+          go mod tidy
+          if ! git diff --quiet -- go.mod go.sum; then
+            echo "::error::go.mod / go.sum are not tidy; run 'go mod tidy' and commit."
+            git diff -- go.mod go.sum
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # 2. Unit tests across the three desktop OSes (race detector where supported).
+  # ---------------------------------------------------------------------------
+  unit:
+    name: unit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            race: true
+          - os: macos-latest
+            race: true
+          - os: windows-latest
+            race: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build (all packages)
+        run: go build ./...
+
+      - name: Test (with race)
+        if: matrix.race
+        run: go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Test (no race)
+        if: ${{ !matrix.race }}
+        run: go test -count=1 ./...
+
+      - name: Upload coverage
+        if: matrix.race && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # 3. Cross-compile every shipped platform/arch (build must not break for any).
+  # ---------------------------------------------------------------------------
+  build-matrix:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          ext=""
+          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
+          out="dist/mgm-$GOOS-$GOARCH$ext"
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/MGM-Laboratory/mgm-cli/internal/version.Version=ci-${{ github.sha }}" \
+            -o "$out" ./cmd/mgm
+          ls -l "$out"
+          file "$out" || true
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mgm-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # 4. CLI + e2e behavior on each OS: smoke (everywhere), broker round-trip and
+  #    interactive PTY (Linux/macOS). The e2e suite builds its own binary and
+  #    drives it as a subprocess against a mock broker.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run e2e suite
+        # Windows: broker/interactive tests self-skip; smoke tests run.
+        # Linux/macOS: full suite (smoke + broker round-trip + interactive PTY).
+        run: go test -tags e2e -v -count=1 -timeout 15m ./test/e2e/...
+
+  # ---------------------------------------------------------------------------
+  # 5. Static-binary smoke across Linux distributions (glibc and musl). The
+  #    CGO-free binary must run unmodified on Ubuntu, Debian, Arch, Alpine, and
+  #    Fedora. We exec inside each distro image via `docker run` so the
+  #    GitHub-hosted actions stay on the Ubuntu host.
+  # ---------------------------------------------------------------------------
+  distro-smoke:
+    name: distro smoke (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: build-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - debian:12
+          - debian:11
+          - archlinux:latest
+          - alpine:3.20
+          - fedora:40
+    steps:
+      - name: Download linux/amd64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: mgm-linux-amd64
+          path: dist
+
+      - name: Smoke-run the static binary in ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          chmod +x dist/mgm-linux-amd64
+          docker run --rm \
+            -v "$PWD/dist/mgm-linux-amd64:/usr/local/bin/mgm:ro" \
+            -e DO_NOT_TRACK=1 -e CRUSH_DISABLE_METRICS=1 -e NO_COLOR=1 \
+            "${{ matrix.image }}" \
+            sh -c '
+              set -e
+              echo "=== distro ==="; (cat /etc/os-release 2>/dev/null | head -2) || true
+              echo "=== mgm version ==="; mgm version
+              echo "=== mgm --help ==="; mgm --help >/dev/null && echo OK
+              echo "=== mgm megumi --help ==="; mgm megumi --help >/dev/null && echo OK
+              echo "=== unknown cmd must fail ==="; if mgm definitely-not-a-cmd >/dev/null 2>&1; then echo "ERROR: unknown command unexpectedly succeeded"; exit 1; else echo OK; fi
+            '
+
+  # ---------------------------------------------------------------------------
+  # 6. Native package install tests: build deb/rpm/apk/arch packages with a
+  #    GoReleaser snapshot, then install each in its matching distro and run the
+  #    binary. Verifies the packaging metadata + install scripts actually work.
+  # ---------------------------------------------------------------------------
+  package-build:
+    name: build packages (goreleaser snapshot)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --snapshot --clean --skip=publish
+      - name: List artifacts
+        run: ls -lh dist/ | grep -E '\.(deb|rpm|apk|pkg\.tar\.zst)$' || (echo "no packages built" && exit 1)
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.apk
+            dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  package-install:
+    name: install ${{ matrix.kind }} (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: package-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { kind: deb, image: "ubuntu:24.04",     install: "apt-get update -qq && apt-get install -y -qq ./*.deb" }
+          - { kind: deb, image: "debian:12",         install: "apt-get update -qq && apt-get install -y -qq ./*.deb" }
+          - { kind: rpm, image: "fedora:40",         install: "dnf install -y ./*.rpm" }
+          - { kind: apk, image: "alpine:3.20",       install: "apk add --allow-untrusted ./*.apk" }
+          - { kind: arch, image: "archlinux:latest", install: "pacman -Sy --noconfirm && pacman -U --noconfirm ./*.pkg.tar.zst" }
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: pkgs
+
+      - name: Install ${{ matrix.kind }} and run mgm in ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD/pkgs:/pkgs" -w /pkgs \
+            -e DO_NOT_TRACK=1 -e CRUSH_DISABLE_METRICS=1 -e NO_COLOR=1 \
+            "${{ matrix.image }}" \
+            sh -ec '
+              echo "=== distro ==="; (cat /etc/os-release 2>/dev/null | head -2) || true
+              ls -1
+              ${{ matrix.install }}
+              echo "=== installed mgm ==="
+              command -v mgm
+              mgm version
+              mgm megumi --help >/dev/null && echo "megumi help OK"
+            '
+
+  # ---------------------------------------------------------------------------
+  # 7. Install-script lint: the install.sh / install.ps1 served by the
+  #    marketing site must stay shell/PowerShell valid.
+  # ---------------------------------------------------------------------------
+  install-scripts:
+    name: install scripts lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck install.sh
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=error install.sh || true   # advisory: don't block on style
+          bash -n install.sh && echo "install.sh: syntax OK"
+      - name: PowerShell parse install.ps1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD/install.ps1", [ref]$null, [ref]$null)
+          Write-Host "install.ps1: parse OK"
+
+  # ---------------------------------------------------------------------------
+  # 8. Vulnerability scan (advisory — informative, not a hard gate).
+  # ---------------------------------------------------------------------------
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: govulncheck ./...
+
+  # ---------------------------------------------------------------------------
+  # 9. Aggregate gate: a single required check that summarizes the matrix.
+  # ---------------------------------------------------------------------------
+  ci-success:
+    name: ci success
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - lint
+      - unit
+      - build-matrix
+      - e2e
+      - distro-smoke
+      - package-install
+      - install-scripts
+    steps:
+      - name: Verify all required jobs succeeded
+        run: |
+          echo "lint=${{ needs.lint.result }}"
+          echo "unit=${{ needs.unit.result }}"
+          echo "build-matrix=${{ needs.build-matrix.result }}"
+          echo "e2e=${{ needs.e2e.result }}"
+          echo "distro-smoke=${{ needs.distro-smoke.result }}"
+          echo "package-install=${{ needs.package-install.result }}"
+          echo "install-scripts=${{ needs.install-scripts.result }}"
+          for r in \
+            "${{ needs.lint.result }}" \
+            "${{ needs.unit.result }}" \
+            "${{ needs.build-matrix.result }}" \
+            "${{ needs.e2e.result }}" \
+            "${{ needs.distro-smoke.result }}" \
+            "${{ needs.package-install.result }}" \
+            "${{ needs.install-scripts.result }}"; do
+            if [ "$r" != "success" ]; then
+              echo "::error::a required CI job did not succeed"
+              exit 1
+            fi
+          done
+          echo "All required CI jobs passed."

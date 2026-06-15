@@ -4,11 +4,21 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Binaries, archives, checksums, Linux packages (deb/rpm/apk/Arch), and the
+  # external-repo publishers (Homebrew cask, Scoop bucket, Nix NUR, AUR).
+  #
+  # The core release (archives + checksums + nfpm packages) always runs. Each
+  # external publisher is skipped unless its token/secret is present, so a
+  # release never fails just because a tap/bucket/AUR key hasn't been
+  # provisioned yet. See docs/release.md for the required secrets.
+  # ---------------------------------------------------------------------------
   goreleaser:
     runs-on: ubuntu-latest
     steps:
@@ -18,12 +28,97 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
           cache: true
+
+      - name: Compute external-publisher skips
+        id: skips
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          SCOOP_BUCKET_GITHUB_TOKEN: ${{ secrets.SCOOP_BUCKET_GITHUB_TOKEN }}
+          NUR_GITHUB_TOKEN: ${{ secrets.NUR_GITHUB_TOKEN }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
+        run: |
+          set -euo pipefail
+          skips=""
+          add() { if [ -z "$skips" ]; then skips="$1"; else skips="$skips,$1"; fi; }
+          [ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ] && add homebrew || true
+          [ -z "${SCOOP_BUCKET_GITHUB_TOKEN}" ] && add scoop || true
+          [ -z "${NUR_GITHUB_TOKEN}" ] && add nix || true
+          [ -z "${AUR_KEY}" ] && add aur || true
+          echo "value=${skips}" >> "$GITHUB_OUTPUT"
+          # Nix NUR publishing needs nix-hash; gate the Nix install on its token.
+          if [ -n "${NUR_GITHUB_TOKEN}" ]; then echo "nix=true" >> "$GITHUB_OUTPUT"; else echo "nix=false" >> "$GITHUB_OUTPUT"; fi
+          echo "Skipping external publishers: '${skips:-<none>}'"
+
+      # Nix NUR publishing needs `nix-hash`; install Nix only when a NUR token is
+      # configured (otherwise the nix pipe auto-skips for lack of nix-hash).
+      - name: Install Nix (for NUR)
+        if: steps.skips.outputs.nix == 'true'
+        uses: cachix/install-nix-action@v27
 
       - uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          args: release --clean
+          version: '~> 2'
+          args: release --clean ${{ steps.skips.outputs.value != '' && format('--skip={0}', steps.skips.outputs.value) || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # External-repo publish targets (each optional; see docs/release.md).
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          SCOOP_BUCKET_GITHUB_TOKEN: ${{ secrets.SCOOP_BUCKET_GITHUB_TOKEN }}
+          NUR_GITHUB_TOKEN: ${{ secrets.NUR_GITHUB_TOKEN }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
+
+  # ---------------------------------------------------------------------------
+  # Multi-arch CLI image → Docker Hub. Runs only when DOCKERHUB_USERNAME /
+  # DOCKERHUB_TOKEN are configured; otherwise the steps no-op so the binary
+  # release is never blocked. Image name from the DOCKERHUB_IMAGE repo variable
+  # (default mgmlaboratory/mgm).
+  # ---------------------------------------------------------------------------
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Docker Hub secret
+        id: gate
+        env:
+          U: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          if [ -n "${U}" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; echo "Docker Hub secret absent — skipping image publish."; fi
+
+      - name: Resolve image + version
+        if: steps.gate.outputs.enabled == 'true'
+        id: meta
+        run: |
+          image="${{ vars.DOCKERHUB_IMAGE != '' && vars.DOCKERHUB_IMAGE || 'mgmlaboratory/mgm' }}"
+          ref="${GITHUB_REF_NAME}"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "version=${ref}" >> "$GITHUB_OUTPUT"
+          # Only tag :latest for a real version tag (vX.Y.Z), not manual dispatch.
+          if printf '%s' "${ref}" | grep -Eq '^v[0-9]'; then
+            echo "tags=${image}:${ref},${image}:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${image}:${ref}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.gate.outputs.enabled == 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.gate.outputs.enabled == 'true'
+
+      - uses: docker/login-action@v3
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}

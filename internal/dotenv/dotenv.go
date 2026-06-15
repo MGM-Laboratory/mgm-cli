@@ -88,9 +88,9 @@ func FromMap(m map[string]string) []Entry {
 
 // Diff describes the change set between local and remote.
 type Diff struct {
-	Added    []Entry          // present locally, missing remote (push) or vice versa (pull)
-	Removed  []string         // present remote, missing local (push) or vice versa (pull)
-	Changed  []ChangedEntry   // key present on both with different values
+	Added   []Entry        // present locally, missing remote (push) or vice versa (pull)
+	Removed []string       // present remote, missing local (push) or vice versa (pull)
+	Changed []ChangedEntry // key present on both with different values
 }
 
 type ChangedEntry struct {

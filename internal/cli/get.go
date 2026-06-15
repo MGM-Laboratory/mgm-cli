@@ -11,8 +11,8 @@ import (
 
 func newGetCommand() *cobra.Command {
 	var (
-		sel  selectionFlags
-		raw  bool
+		sel selectionFlags
+		raw bool
 	)
 	c := &cobra.Command{
 		Use:   "get <KEY>",

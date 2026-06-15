@@ -1,13 +1,19 @@
-# mgm CLI installer for Windows PowerShell.
+# Megumi Code / mgm CLI installer for Windows PowerShell.
+#
+# Served from the marketing site (https://cli.labmgm.org); pulls the matching
+# binary from GitHub Releases.
 #
 # One-liner:
-#   irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+#   irm https://cli.labmgm.org/install.ps1 | iex
 #
 # Pin a version:
-#   $env:MGM_VERSION='v0.1.0'; irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+#   $env:MGM_VERSION='v0.1.0'; irm https://cli.labmgm.org/install.ps1 | iex
 #
 # Custom install dir:
-#   $env:MGM_INSTALL_DIR="$HOME\bin"; irm .../install.ps1 | iex
+#   $env:MGM_INSTALL_DIR="$HOME\bin"; irm https://cli.labmgm.org/install.ps1 | iex
+#
+# Knobs: MGM_REPO (default MGM-Laboratory/mgm-cli), MGM_VERSION (default latest),
+# MGM_INSTALL_DIR.
 
 [CmdletBinding()]
 param(
@@ -144,5 +150,10 @@ try {
 } catch {}
 Write-Host ""
 Write-Host "Next: " -NoNewline
+Write-Host "mgm auth" -ForegroundColor Yellow -NoNewline
+Write-Host " to sign in, then " -NoNewline
+Write-Host "mgm megumi" -ForegroundColor Yellow -NoNewline
+Write-Host " to start Megumi Code."
+Write-Host "Secrets/Infisical users: " -NoNewline
 Write-Host "mgm env configure" -ForegroundColor Yellow -NoNewline
-Write-Host " to set Infisical credentials."
+Write-Host "."

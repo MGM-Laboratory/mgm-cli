@@ -18,16 +18,45 @@ One command. Pick the line for your OS — that's it.
 ### Linux / macOS / WSL / Git Bash
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | bash
+curl -fsSL https://cli.labmgm.org/install.sh | bash
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+irm https://cli.labmgm.org/install.ps1 | iex
 ```
 
-That installs the latest release into `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\mgm` (Windows), updates your `PATH` if needed, and prints the version. Re-run the same command to upgrade.
+That installs the latest release into `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\mgm` (Windows), updates your `PATH` if needed, and prints the version. Re-run the same command to upgrade. Then `mgm auth` to sign in and `mgm megumi` to start Megumi Code.
+
+### Package managers
+
+```sh
+# Homebrew (macOS/Linux)
+brew install --cask MGM-Laboratory/mgm/mgm
+
+# Scoop (Windows)
+scoop bucket add mgm https://github.com/MGM-Laboratory/scoop-mgm
+scoop install mgm
+
+# Debian / Ubuntu
+sudo apt install ./mgm_*_linux_amd64.deb        # downloaded from the releases page
+
+# Fedora / RHEL
+sudo dnf install ./mgm_*_linux_amd64.rpm
+
+# Alpine
+sudo apk add --allow-untrusted ./mgm_*_linux_amd64.apk
+
+# Arch (AUR)
+yay -S mgm-bin
+
+# Nix (NUR)
+nix-env -iA nur.repos.mgm-laboratory.mgm
+
+# Docker
+docker run --rm mgmlaboratory/mgm version
+```
 
 <details>
 <summary>Pin a version, custom install dir, manual download, source build</summary>
@@ -36,22 +65,22 @@ That installs the latest release into `/usr/local/bin` (Linux/macOS) or `%LOCALA
 
 ```sh
 # Linux/macOS
-curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | MGM_VERSION=v0.1.0 bash
+curl -fsSL https://cli.labmgm.org/install.sh | MGM_VERSION=v0.1.0 bash
 ```
 
 ```powershell
 # Windows
-$env:MGM_VERSION='v0.1.0'; irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+$env:MGM_VERSION='v0.1.0'; irm https://cli.labmgm.org/install.ps1 | iex
 ```
 
 #### Custom install location (no sudo)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.sh | MGM_INSTALL_DIR=$HOME/.local/bin bash
+curl -fsSL https://cli.labmgm.org/install.sh | MGM_INSTALL_DIR=$HOME/.local/bin bash
 ```
 
 ```powershell
-$env:MGM_INSTALL_DIR="$HOME\bin"; irm https://raw.githubusercontent.com/MGM-Laboratory/mgm-cli/main/install.ps1 | iex
+$env:MGM_INSTALL_DIR="$HOME\bin"; irm https://cli.labmgm.org/install.ps1 | iex
 ```
 
 #### Manual download
@@ -137,14 +166,90 @@ Switch profiles with `--profile ops` (or `MGM_PROFILE=ops`).
 | `MGM_GATUS_URL`          | Gatus base URL                                |
 | `MGM_GATUS_TOKEN`        | Gatus bearer token (optional)                 |
 | `MGM_NO_TUI=1`           | Disable interactive prompts (CI)              |
+| `MEGUMI_OIDC_ISSUER`     | Keycloak realm issuer URL (Megumi auth)       |
+| `MEGUMI_OIDC_CLIENT_ID`  | Public CLI client id                          |
+| `MEGUMI_OIDC_SCOPES`     | OIDC scopes (default includes `offline_access`) |
+| `MEGUMI_BASE_URL`        | Backend broker base URL (`whoami` enrichment) |
+| `MEGUMI_ROLE_ADMIN`      | Realm-role/group name mapped to `admin`       |
+| `MEGUMI_ROLE_OPERATOR`   | Realm-role/group name mapped to `operator`    |
+| `MEGUMI_CRED_STORE`      | Credential backend: `auto` / `keychain` / `file` |
+| `MEGUMI_HOME`            | Override `~/.mgm/megumi` (mainly for tests)   |
 
-Resolution order: CLI flags > `.mgm.yaml` > profile in config > env vars > built-in defaults.
+Resolution order: CLI flags > `.mgm.yaml` > profile in config > env vars > built-in defaults. Megumi auth values are env-only (no profile section); see `.env.example`.
 
 </details>
 
 ---
 
 ## Namespaces
+
+<details open>
+<summary><b><code>mgm megumi</code></b> — Megumi Code, the lab's AI coding agent</summary>
+
+`mgm megumi` starts **Megumi Code**, a forked, rebranded [Charm Crush](https://github.com/charmbracelet/crush)
+embedded into this single binary and pointed exclusively at the lab broker. Every
+model request is brokered through the backend (which holds the Claude
+credentials); the agent loop and all tools run **locally** on your machine.
+
+```sh
+mgm megumi                 # start an interactive session (asks how to authenticate)
+mgm megumi --account       # use your mgm account (skip the prompt)
+mgm megumi --api-code      # use a Megumi API code (skip the prompt)
+mgm megumi run "…"         # non-interactive; extra args/flags pass through to the agent
+```
+
+- **Auth** reuses your `mgm auth` session. Choosing *mgm account* refreshes the
+  saved tokens transparently (no re-login); choosing *Megumi API code* prompts for
+  a code, verifies it, and saves it to the shared store under `~/.mgm/megumi`.
+- **Models** are the Megumi labels **Meji** (Haiku), **Gumi** (Sonnet),
+  **Miyu** (Opus). The broker maps each to an upstream model.
+- **Memory** is `MEGUMI.md` — project-level (`./MEGUMI.md`, `./MEGUMI.local.md`)
+  and user-level (`~/.mgm/megumi/MEGUMI.md`), hierarchical like Claude Code's
+  `CLAUDE.md` (which is still read for interop, along with `AGENTS.md`).
+- **State** (sessions, history, config) lives entirely under `~/.mgm/megumi`.
+- Only the Megumi broker is reachable — no other model provider is available, and
+  telemetry/auto-update are disabled.
+
+Configure via environment (see `.env.example`): `MEGUMI_BASE_URL` (broker),
+`MEGUMI_EFFORT` (`low|medium|high`). Auth env (`MEGUMI_OIDC_*`) is shared with
+`mgm auth`.
+
+</details>
+
+<details open>
+<summary><b><code>mgm auth</code> / <code>mgm whoami</code></b> — Megumi Code mgm-account login</summary>
+
+Sign in to **Megumi Code** with your mgm account (Keycloak at `iam.labmgm.org`).
+Credentials are stored under `~/.mgm/megumi` — in the OS keychain when available
+(macOS Keychain / Windows Credential Manager / libsecret), otherwise a `0600`
+AES-256-GCM encrypted file — and are shared with the `mgm megumi` agent.
+
+```sh
+mgm auth                   # sign in (opens a browser for Authorization Code + PKCE)
+mgm auth --no-browser      # no browser: show a URL + code to enter elsewhere (device flow)
+mgm auth --device          # force the device-code flow
+mgm auth status            # are you signed in? (refreshes an expired token)
+mgm auth logout            # revoke + clear stored credentials
+mgm whoami                 # show the active Megumi identity (subject/email/role/method)
+mgm whoami --json          # same, as JSON
+```
+
+Login tries the browser PKCE flow first and automatically falls back to the
+in-terminal device-code flow when no browser can be opened. Access tokens are
+refreshed transparently. Your **role** (`member` / `operator` / `admin`) comes
+from Keycloak realm roles or groups; `mgm whoami` confirms it against the backend
+when reachable and otherwise shows the locally-decoded value.
+
+The Megumi identity is distinct from the Infisical identity — for the latter use
+`mgm env whoami`.
+
+Configure via environment (see `.env.example`): `MEGUMI_OIDC_ISSUER`,
+`MEGUMI_OIDC_CLIENT_ID`, `MEGUMI_OIDC_SCOPES`, `MEGUMI_BASE_URL`,
+`MEGUMI_ROLE_ADMIN`, `MEGUMI_ROLE_OPERATOR`. The Keycloak realm, CLI client
+(`megumi-cli`), redirect URIs, and roles are described in the backend runbook at
+`mgm-cli-backend/docs/keycloak.md`.
+
+</details>
 
 <details>
 <summary><b><code>mgm env</code></b> — Secrets & .env files via Infisical</summary>
@@ -308,3 +413,12 @@ git tag v0.1.0 && git push --tags
 ```
 
 GitHub Actions builds and publishes archives + Linux packages automatically.
+
+## Attribution
+
+`mgm megumi` embeds a vendored, modified fork of **Charm Crush**
+(<https://github.com/charmbracelet/crush>) under
+`internal/megumi/crush/`, licensed under the **Functional Source License
+(FSL-1.1-MIT)**. The upstream `LICENSE.md` is preserved verbatim there, alongside
+a `NOTICE` recording the upstream commit and the modifications made. Megumi Code
+is internal MGM Laboratory tooling.

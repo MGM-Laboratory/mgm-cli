@@ -160,6 +160,7 @@ func DeriveKey(group, name string) string {
 //  2. case-insensitive name
 //  3. case-insensitive "group/name"
 //  4. case-insensitive substring of name or key
+//
 // Returns (nil, nil) if no match. Returns ambiguity error if >1 match in tier 4.
 func FindEndpoint(endpoints []Endpoint, q string) (*Endpoint, error) {
 	if q == "" {
