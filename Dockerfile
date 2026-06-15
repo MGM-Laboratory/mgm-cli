@@ -20,9 +20,14 @@ COPY . .
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
+ARG COMMIT=none
+ARG DATE=unknown
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath \
-      -ldflags "-s -w -X github.com/MGM-Laboratory/mgm-cli/internal/version.Version=${VERSION}" \
+      -ldflags "-s -w \
+        -X github.com/MGM-Laboratory/mgm-cli/internal/version.Version=${VERSION} \
+        -X github.com/MGM-Laboratory/mgm-cli/internal/version.Commit=${COMMIT} \
+        -X github.com/MGM-Laboratory/mgm-cli/internal/version.Date=${DATE}" \
       -o /out/mgm ./cmd/mgm
 
 # --- runtime stage ---------------------------------------------------------

@@ -1,0 +1,76 @@
+name: deploy-staging
+
+# Staging deployment to Docker Hub. On push or PR to dev, build the image and
+# push labmgm/<repo-name> tagged :staging (instead of :latest), plus
+# :sha-<short> and a build datetime. If Docker Hub credentials are unavailable
+# (e.g. a fork PR), the image is built for validation but not pushed.
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker:
+    name: build & push → :staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Docker Hub credentials
+        id: creds
+        env:
+          U: ${{ secrets.DOCKERHUB_USERNAME }}
+          T: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "$U" ] && [ -n "$T" ]; then
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Docker Hub credentials absent — building only, not pushing."
+          fi
+
+      - name: Build datetime
+        id: bd
+        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME || 'labmgm' }}/${{ github.event.repository.name }}
+          tags: |
+            type=raw,value=staging
+            type=sha
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
+
+      - uses: docker/login-action@v3
+        if: steps.creds.outputs.have == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and (conditionally) push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ steps.creds.outputs.have == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=staging-${{ github.sha }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.bd.outputs.date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
