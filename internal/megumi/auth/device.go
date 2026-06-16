@@ -20,7 +20,13 @@ func (a *Authenticator) deviceFlow(ctx context.Context, ep *oidc.Endpoints, n No
 	}
 	oc := a.oauthConfig(ep, "")
 
-	da, err := oc.DeviceAuth(ctx)
+	// Bind the device flow to a PKCE verifier: public clients that enforce a
+	// code-challenge method (Keycloak "Proof Key for Code Exchange" = S256) also
+	// require it on the device grant, so we send the challenge here and the
+	// verifier at the token exchange below.
+	verifier := oauth2.GenerateVerifier()
+
+	da, err := oc.DeviceAuth(ctx, oauth2.S256ChallengeOption(verifier))
 	if err != nil {
 		return nil, fmt.Errorf("request device code: %w", err)
 	}
@@ -35,7 +41,7 @@ func (a *Authenticator) deviceFlow(ctx context.Context, ep *oidc.Endpoints, n No
 
 	// DeviceAccessToken polls at the server-specified interval until the user
 	// approves, the code expires, or ctx is cancelled.
-	tok, err := oc.DeviceAccessToken(ctx, da)
+	tok, err := oc.DeviceAccessToken(ctx, da, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return nil, fmt.Errorf("device authorization: %w", err)
 	}

@@ -246,7 +246,7 @@ The Megumi identity is distinct from the Infisical identity — for the latter u
 Configure via environment (see `.env.example`): `MEGUMI_OIDC_ISSUER`,
 `MEGUMI_OIDC_CLIENT_ID`, `MEGUMI_OIDC_SCOPES`, `MEGUMI_BASE_URL`,
 `MEGUMI_ROLE_ADMIN`, `MEGUMI_ROLE_OPERATOR`. The Keycloak realm, CLI client
-(`megumi-cli`), redirect URIs, and roles are described in the backend runbook at
+(`mgm-cli`), redirect URIs, and roles are described in the backend runbook at
 `mgm-cli-backend/docs/keycloak.md`.
 
 </details>

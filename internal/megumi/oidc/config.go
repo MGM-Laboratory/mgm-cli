@@ -14,8 +14,8 @@ import (
 // through the environment so the CLI never ships a hardcoded secret or host that
 // can't be repointed.
 const (
-	DefaultIssuer       = "https://iam.labmgm.org/realms/megumi"
-	DefaultClientID     = "megumi-cli"
+	DefaultIssuer       = "https://iam.labmgm.org/realms/mgm"
+	DefaultClientID     = "mgm-cli"
 	DefaultScopes       = "openid profile email offline_access"
 	DefaultBaseURL      = "https://cli-api.labmgm.org"
 	DefaultRoleAdmin    = "megumi-admin"
